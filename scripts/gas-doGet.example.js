@@ -5,8 +5,10 @@
  * - 執行身分：我
  * - 具有存取權的使用者：任何人
  *
- * 若 imgUrl 仍為空，請到 GCP 啟用 Drive API：
- * GAS「專案設定」→「Google Cloud Platform 專案」→ API 和服務 → 啟用「Google Drive API」
+ * 若 imgUrl 仍為空：
+ * 1. 專案設定 → 勾選「在編輯器中顯示 appsscript.json」→ 貼上 scripts/appsscript.json.example
+ * 2. 先執行 authorizeDrive() 完成 Drive 授權
+ * 3. 再執行 testImageEncode()，最後部署新版本
  */
 const SPREADSHEET_ID = '1VVBJ2d9Ou9sd5N3nQz_uguUzSJdxIsKtb8q08rtpLTg';
 const SHEET_NAME = 'allUserResponse';
@@ -24,6 +26,12 @@ function doGet(e) {
   }
 
   return ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);
+}
+
+/** 第一次請先執行此函式，跳出授權時務必允許「Google 雲端硬碟」 */
+function authorizeDrive() {
+  DriveApp.getRootFolder();
+  Logger.log('Drive 授權成功');
 }
 
 function testImageEncode() {
