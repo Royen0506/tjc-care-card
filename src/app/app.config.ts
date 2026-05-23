@@ -4,7 +4,7 @@ import {
   provideZoneChangeDetection,
 } from '@angular/core';
 /** @angular/common/http */
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withJsonpSupport } from '@angular/common/http';
 /** @angular/platform-browser／動畫 */
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 /** @angular/router */
@@ -19,7 +19,7 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideZoneChangeDetection({ eventCoalescing: true }),
-    provideHttpClient(),
+    provideHttpClient(withJsonpSupport()),
     provideAnimationsAsync(),
     providePrimeNG({
       theme: {
