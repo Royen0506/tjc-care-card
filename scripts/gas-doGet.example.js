@@ -56,8 +56,46 @@ function getResponses_() {
   return { success: true, data: data };
 }
 
-/** 以腳本擁有者身分讀取 Drive 縮圖，轉成 data URL 供 <img src> 直接使用 */
+/** 確認 blob 為圖片（避免把 Google 登入 HTML 誤編碼成 base64） */
+function isImageBlob_(blob) {
+  const mime = (blob.getContentType() || '').toLowerCase();
+  if (mime.indexOf('image/') === 0) {
+    return true;
+  }
+
+  const bytes = blob.getBytes();
+  if (bytes.length < 4) {
+    return false;
+  }
+
+  if (bytes[0] === 0xff && bytes[1] === 0xd8) return true;
+  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return true;
+  if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) return true;
+
+  return false;
+}
+
+function blobToDataUrl_(blob) {
+  if (!isImageBlob_(blob)) {
+    return '';
+  }
+
+  const mime = blob.getContentType() || 'image/jpeg';
+  const normalizedMime = mime.indexOf('image/') === 0 ? mime : 'image/jpeg';
+  return 'data:' + normalizedMime + ';base64,' + Utilities.base64Encode(blob.getBytes());
+}
+
+/** 以腳本擁有者身分讀取 Drive 檔案，轉成 data URL 供 <img src> 直接使用 */
 function fileIdToDataUrl_(fileId) {
+  try {
+    const fromDrive = blobToDataUrl_(DriveApp.getFileById(fileId).getBlob());
+    if (fromDrive) {
+      return fromDrive;
+    }
+  } catch (err) {
+    // 改試 thumbnail
+  }
+
   try {
     const thumbUrl = 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w400';
     const resp = UrlFetchApp.fetch(thumbUrl, {
@@ -65,19 +103,14 @@ function fileIdToDataUrl_(fileId) {
       followRedirects: true,
     });
 
-    let blob;
     if (resp.getResponseCode() === 200) {
-      blob = resp.getBlob();
-    } else {
-      blob = DriveApp.getFileById(fileId).getBlob();
+      return blobToDataUrl_(resp.getBlob());
     }
-
-    const mime = blob.getContentType() || 'image/jpeg';
-    const b64 = Utilities.base64Encode(blob.getBytes());
-    return 'data:' + mime + ';base64,' + b64;
   } catch (err) {
     return '';
   }
+
+  return '';
 }
 
 function parseDriveFileId_(url) {
