@@ -1,3 +1,5 @@
+import { GAS_EXEC_URL } from '../service/sheets-api.service';
+
 /**
  * 從 GAS 代理網址（exec?img=）或 Google Drive 網址取出檔案 ID。
  */
@@ -24,23 +26,13 @@ export function extractDriveFileId(url: string): string | null {
 }
 
 /**
- * 轉成可在網頁嵌入的 Drive 縮圖（GAS exec?img= 無法給 <img> 匿名載入）。
+ * 轉成 GAS 圖片代理網址（匿名訪客可載入，不需登入 Google Drive）。
  */
-export function resolveAvatarImageUrl(url: string, size = 400): string {
+export function resolveAvatarImageUrl(url: string): string {
   const id = extractDriveFileId(url);
   if (!id) {
     return url;
   }
 
-  return `https://drive.google.com/thumbnail?id=${id}&sz=w${size}`;
-}
-
-/** 縮圖載入失敗時的備用網址。 */
-export function avatarImageFallbackUrl(url: string): string | null {
-  const id = extractDriveFileId(url);
-  if (!id) {
-    return null;
-  }
-
-  return `https://drive.google.com/uc?export=view&id=${id}`;
+  return `${GAS_EXEC_URL}?img=${id}`;
 }
