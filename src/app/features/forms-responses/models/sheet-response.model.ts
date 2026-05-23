@@ -7,5 +7,6 @@ export interface ContentItem {
   createTime: string;
   userName: string;
   imgUrl: string;
+  imgFileId?: string;
   content: string;
 }

@@ -5,7 +5,8 @@
  * - 執行身分：我
  * - 具有存取權的使用者：任何人
  *
- * 圖片以 data URL（base64）嵌入 JSON，避免 exec?img= 回傳 HTML 無法顯示。
+ * 圖片以 data URL（base64）嵌入 JSON。
+ * 測試：在編輯器執行 testImageEncode() 看 Logger。
  */
 const SPREADSHEET_ID = '1VVBJ2d9Ou9sd5N3nQz_uguUzSJdxIsKtb8q08rtpLTg';
 const SHEET_NAME = 'allUserResponse';
@@ -24,6 +25,36 @@ function doGet(e) {
   return ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);
 }
 
+/** 在 GAS 編輯器手動執行，確認能否讀到 Drive 圖片 */
+function testImageEncode() {
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_NAME);
+  const range = sheet.getDataRange();
+  const values = range.getValues();
+  const rich = range.getRichTextValues();
+  const headers = values[0];
+  const photoCol = headers.indexOf('imgUrl');
+
+  Logger.log('imgUrl column index: ' + photoCol);
+
+  if (photoCol < 0) {
+    Logger.log('找不到 imgUrl 欄位，headers=' + JSON.stringify(headers));
+    return;
+  }
+
+  const row = values[1];
+  const fileId = resolveDriveFileIdFromCell_(row[photoCol], rich[1][photoCol]);
+  Logger.log('fileId=' + fileId);
+
+  if (!fileId) {
+    Logger.log('cell value=' + row[photoCol]);
+    return;
+  }
+
+  const dataUrl = fileIdToDataUrl_(fileId);
+  Logger.log('dataUrl prefix=' + dataUrl.substring(0, 40));
+  Logger.log('dataUrl length=' + dataUrl.length);
+}
+
 function getResponses_() {
   const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_NAME);
   const range = sheet.getDataRange();
@@ -40,12 +71,8 @@ function getResponses_() {
       headers.forEach((h, i) => (obj[h] = row[i]));
 
       if (photoCol >= 0) {
-        let url = row[photoCol];
-        if (typeof url !== 'string' || !url.includes('drive.google.com')) {
-          const rt = richRows[ri][photoCol];
-          url = rt ? rt.getLinkUrl() || '' : '';
-        }
-        const fileId = parseDriveFileId_(url);
+        const fileId = resolveDriveFileIdFromCell_(row[photoCol], richRows[ri][photoCol]);
+        obj.imgFileId = fileId || '';
         obj.imgUrl = fileId ? fileIdToDataUrl_(fileId) : '';
       }
 
@@ -56,7 +83,32 @@ function getResponses_() {
   return { success: true, data: data };
 }
 
-/** 確認 blob 為圖片（避免把 Google 登入 HTML 誤編碼成 base64） */
+function resolveDriveFileIdFromCell_(value, richText) {
+  const fromValue = parseDriveFileId_(value);
+  if (fromValue) {
+    return fromValue;
+  }
+
+  if (!richText) {
+    return null;
+  }
+
+  const fromLink = parseDriveFileId_(richText.getLinkUrl());
+  if (fromLink) {
+    return fromLink;
+  }
+
+  const runs = richText.getRuns();
+  for (let i = 0; i < runs.length; i++) {
+    const fromRun = parseDriveFileId_(runs[i].getLinkUrl());
+    if (fromRun) {
+      return fromRun;
+    }
+  }
+
+  return null;
+}
+
 function isImageBlob_(blob) {
   const mime = (blob.getContentType() || '').toLowerCase();
   if (mime.indexOf('image/') === 0) {
@@ -75,24 +127,26 @@ function isImageBlob_(blob) {
   return false;
 }
 
-/** 以 Drive API（部署者 OAuth）讀取檔案，轉成 data URL */
 function fileIdToDataUrl_(fileId) {
-  const fromApi = fetchDriveFileAsDataUrl_(fileId);
-  if (fromApi) {
-    return fromApi;
-  }
-
   try {
     const file = DriveApp.getFileById(fileId);
     const mime = file.getMimeType() || '';
+    const blob = file.getBlob();
+
     if (mime.indexOf('image/') === 0) {
-      return encodeBlobAsDataUrl_(file.getBlob(), mime);
+      return 'data:' + mime + ';base64,' + Utilities.base64Encode(blob.getBytes());
+    }
+
+    if (isImageBlob_(blob)) {
+      const safeMime = blob.getContentType() || 'image/jpeg';
+      const normalized = safeMime.indexOf('image/') === 0 ? safeMime : 'image/jpeg';
+      return 'data:' + normalized + ';base64,' + Utilities.base64Encode(blob.getBytes());
     }
   } catch (err) {
-    return '';
+    // 改試 Drive API
   }
 
-  return '';
+  return fetchDriveFileAsDataUrl_(fileId);
 }
 
 function fetchDriveFileAsDataUrl_(fileId) {
@@ -117,10 +171,18 @@ function fetchDriveFileAsDataUrl_(fileId) {
       mime = lookupDriveMimeType_(fileId, token) || '';
     }
 
-    return encodeBlobAsDataUrl_(resp.getBlob(), mime);
+    if (mime.indexOf('image/') === 0) {
+      return 'data:' + mime + ';base64,' + Utilities.base64Encode(resp.getBlob().getBytes());
+    }
+
+    if (isImageBlob_(resp.getBlob())) {
+      return 'data:image/jpeg;base64,' + Utilities.base64Encode(resp.getBlob().getBytes());
+    }
   } catch (err) {
     return '';
   }
+
+  return '';
 }
 
 function lookupDriveMimeType_(fileId, token) {
@@ -142,33 +204,36 @@ function lookupDriveMimeType_(fileId, token) {
   return null;
 }
 
-function encodeBlobAsDataUrl_(blob, mime) {
-  const normalizedMime = mime && mime.indexOf('image/') === 0 ? mime : '';
-
-  if (normalizedMime) {
-    return 'data:' + normalizedMime + ';base64,' + Utilities.base64Encode(blob.getBytes());
+function parseDriveFileId_(input) {
+  if (input === null || input === undefined) {
+    return null;
   }
 
-  if (!isImageBlob_(blob)) {
-    return '';
+  const url = String(input).trim();
+  if (!url) {
+    return null;
   }
 
-  const fallbackMime = blob.getContentType() || 'image/jpeg';
-  const safeMime = fallbackMime.indexOf('image/') === 0 ? fallbackMime : 'image/jpeg';
-  return 'data:' + safeMime + ';base64,' + Utilities.base64Encode(blob.getBytes());
-}
+  if (/^[a-zA-Z0-9_-]{20,}$/.test(url)) {
+    return url;
+  }
 
-function parseDriveFileId_(url) {
-  if (!url || typeof url !== 'string') return null;
   const patterns = [
     /[?&]img=([a-zA-Z0-9_-]+)/,
     /[?&]id=([a-zA-Z0-9_-]+)/,
     /\/file\/d\/([a-zA-Z0-9_-]+)/,
     /\/d\/([a-zA-Z0-9_-]+)/,
+    /IMAGE\("([^"]+)"/i,
+    /IMAGE\('([^']+)'/i,
   ];
+
   for (let i = 0; i < patterns.length; i++) {
     const m = url.match(patterns[i]);
-    if (m) return m[1];
+    if (m) {
+      const nested = parseDriveFileId_(m[1]);
+      return nested || m[1];
+    }
   }
+
   return null;
 }

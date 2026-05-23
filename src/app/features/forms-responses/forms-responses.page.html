@@ -47,13 +47,22 @@
           [ngClass]="{ 'flex-row-reverse': i % 2 === 1 }"
         >
           <div class="flex flex-col items-center">
-            <img
-              [src]="item.imgUrl"
-              alt=""
-              loading="eager"
-              decoding="async"
-              class="object-cover rounded-2xl w-24 h-25 ring-2 ring-[#729C6D]/30"
-            />
+            @if (item.imgUrl) {
+              <img
+                [src]="item.imgUrl"
+                alt=""
+                loading="eager"
+                decoding="async"
+                class="object-cover rounded-2xl w-24 h-25 ring-2 ring-[#729C6D]/30"
+              />
+            } @else {
+              <div
+                class="flex items-center justify-center rounded-2xl w-24 h-25 ring-2 ring-[#729C6D]/30 bg-[#E0D8B4] text-[#4B4B2A] text-2xl font-bold"
+                aria-hidden="true"
+              >
+                {{ item.userName.slice(0, 1) }}
+              </div>
+            }
             <div
               class="bg-[#E0D8B4] text-[#4B4B2A] mt-3 text-center font-bold rounded-xl text-nowrap px-2 w-full"
             >
