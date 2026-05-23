@@ -5,10 +5,6 @@ import dayjs from 'dayjs';
 /** -- service & model --*/
 import { SheetsApiService } from './service/sheets-api.service';
 import { ContentItem } from './models/sheet-response.model';
-import {
-  driveImageFallbackUrl,
-  toDisplayableDriveImageUrl,
-} from './utils/drive-image.util';
 /** -- store & Rxjs --*/
 import { finalize } from 'rxjs';
 /** -- component & primeNG module --*/
@@ -42,22 +38,8 @@ export class FormsResponsesPage implements OnInit {
         finalize(() => this.isLoading.set(false)),
       )
       .subscribe((res) => {
-        this.dataList.set(
-          res.data.map((item) => ({
-            ...item,
-            imgUrl: toDisplayableDriveImageUrl(item.imgUrl),
-          })),
-        );
+        /** GAS 已回傳 exec?img= 代理網址，直接使用勿再改寫 */
+        this.dataList.set(res.data);
       });
-  }
-
-  /** 頭像載入失敗時改用備用 Google Drive 網址（常見於 iOS Safari）。 */
-  protected onAvatarError(event: Event, item: ContentItem): void {
-    const img = event.target as HTMLImageElement;
-    const fallback = driveImageFallbackUrl(item.imgUrl);
-
-    if (fallback && img.src !== fallback) {
-      img.src = fallback;
-    }
   }
 }

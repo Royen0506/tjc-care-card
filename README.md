@@ -9,13 +9,13 @@
 
 ## 指令
 
-| 指令 | 說明 |
-|------|------|
-| `npm start` | 本機開發（`http://localhost:4200`） |
-| `npm run build` | 正式建置（根路徑 `/`） |
-| `npm run build:pages` | GitHub Pages 建置（`baseHref` 為 `/tjc-care-card/`） |
-| `npm run preview:pages` | 本機模擬 GitHub Pages 子路徑預覽 |
-| `npm test` | 單元測試（Karma） |
+| 指令                    | 說明                                                 |
+| ----------------------- | ---------------------------------------------------- |
+| `npm start`             | 本機開發（`http://localhost:4200`）                  |
+| `npm run build`         | 正式建置（根路徑 `/`）                               |
+| `npm run build:pages`   | GitHub Pages 建置（`baseHref` 為 `/tjc-care-card/`） |
+| `npm run preview:pages` | 本機模擬 GitHub Pages 子路徑預覽                     |
+| `npm test`              | 單元測試（Karma）                                    |
 
 ## GitHub Pages
 
