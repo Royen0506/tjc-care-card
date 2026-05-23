@@ -1,23 +1,17 @@
 /**
  * Google Apps Script 範例（貼到 script.google.com 專案）
  *
- * 部署設定（重要）：
+ * 部署設定：
  * - 執行身分：我
  * - 具有存取權的使用者：任何人
  *
- * JSONP：?callback=xxx 回傳資料
- * 圖片代理：?img=檔案ID 回傳圖片（匿名訪客可讀，不需登入 Google）
+ * 圖片以 data URL（base64）嵌入 JSON，避免 exec?img= 回傳 HTML 無法顯示。
  */
 const SPREADSHEET_ID = '1VVBJ2d9Ou9sd5N3nQz_uguUzSJdxIsKtb8q08rtpLTg';
 const SHEET_NAME = 'allUserResponse';
 
 function doGet(e) {
   const params = e && e.parameter ? e.parameter : {};
-
-  if (params.img) {
-    return serveDriveImage_(params.img);
-  }
-
   const payload = getResponses_();
   const json = JSON.stringify(payload);
 
@@ -39,7 +33,6 @@ function getResponses_() {
   const rows = values.slice(1);
   const richRows = rich.slice(1);
   const photoCol = headers.indexOf('imgUrl');
-  const baseUrl = ScriptApp.getService().getUrl();
 
   const data = rows
     .map((row, ri) => {
@@ -53,7 +46,7 @@ function getResponses_() {
           url = rt ? rt.getLinkUrl() || '' : '';
         }
         const fileId = parseDriveFileId_(url);
-        obj.imgUrl = fileId ? baseUrl + '?img=' + fileId : '';
+        obj.imgUrl = fileId ? fileIdToDataUrl_(fileId) : '';
       }
 
       return obj;
@@ -63,28 +56,27 @@ function getResponses_() {
   return { success: true, data: data };
 }
 
-/** 以腳本擁有者身分讀取 Drive 檔案並回傳給匿名訪客 */
-function serveDriveImage_(fileId) {
+/** 以腳本擁有者身分讀取 Drive 縮圖，轉成 data URL 供 <img src> 直接使用 */
+function fileIdToDataUrl_(fileId) {
   try {
-    const blob = DriveApp.getFileById(fileId).getBlob();
-    return ContentService.createBinaryOutput(blob.getBytes()).setMimeType(
-      blob.getContentType() || 'image/jpeg',
-    );
-  } catch (err) {
     const thumbUrl = 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w400';
     const resp = UrlFetchApp.fetch(thumbUrl, {
       muteHttpExceptions: true,
       followRedirects: true,
     });
-    if (resp.getResponseCode() !== 200) {
-      return ContentService.createTextOutput('Image not found').setMimeType(
-        ContentService.MimeType.TEXT,
-      );
+
+    let blob;
+    if (resp.getResponseCode() === 200) {
+      blob = resp.getBlob();
+    } else {
+      blob = DriveApp.getFileById(fileId).getBlob();
     }
-    const outBlob = resp.getBlob();
-    return ContentService.createBinaryOutput(outBlob.getBytes()).setMimeType(
-      outBlob.getContentType() || 'image/jpeg',
-    );
+
+    const mime = blob.getContentType() || 'image/jpeg';
+    const b64 = Utilities.base64Encode(blob.getBytes());
+    return 'data:' + mime + ';base64,' + b64;
+  } catch (err) {
+    return '';
   }
 }
 

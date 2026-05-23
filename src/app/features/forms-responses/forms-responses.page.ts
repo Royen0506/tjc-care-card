@@ -5,7 +5,6 @@ import dayjs from 'dayjs';
 /** -- service & model --*/
 import { SheetsApiService } from './service/sheets-api.service';
 import { ContentItem } from './models/sheet-response.model';
-import { resolveAvatarImageUrl } from './utils/drive-image.util';
 /** -- store & Rxjs --*/
 import { finalize } from 'rxjs';
 /** -- component & primeNG module --*/
@@ -41,12 +40,8 @@ export class FormsResponsesPage implements OnInit {
       )
       .subscribe({
         next: (res) => {
-          this.dataList.set(
-            res.data.map((item) => ({
-              ...item,
-              imgUrl: resolveAvatarImageUrl(item.imgUrl),
-            })),
-          );
+          /** GAS 回傳 data:image/...;base64,... 可直接用於 img src */
+          this.dataList.set(res.data);
         },
         error: () => this.loadError.set(true),
       });
