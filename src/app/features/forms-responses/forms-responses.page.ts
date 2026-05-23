@@ -26,6 +26,7 @@ export class FormsResponsesPage implements OnInit {
   private readonly sheetsApiService = inject(SheetsApiService);
   protected readonly dataList = signal<ContentItem[]>([]);
   protected readonly isLoading = signal(true);
+  protected readonly loadError = signal(false);
   protected readonly loadingChars = ['T', 'J', 'C', '.', '.', '.'] as const;
   protected readonly now = signal(dayjs().format('YYYY-MM-DD'));
   private readonly destroyRef = inject(DestroyRef);
@@ -41,13 +42,16 @@ export class FormsResponsesPage implements OnInit {
         takeUntilDestroyed(this.destroyRef),
         finalize(() => this.isLoading.set(false)),
       )
-      .subscribe((res) => {
-        this.dataList.set(
-          res.data.map((item) => ({
-            ...item,
-            imgUrl: resolveAvatarImageUrl(item.imgUrl),
-          })),
-        );
+      .subscribe({
+        next: (res) => {
+          this.dataList.set(
+            res.data.map((item) => ({
+              ...item,
+              imgUrl: resolveAvatarImageUrl(item.imgUrl),
+            })),
+          );
+        },
+        error: () => this.loadError.set(true),
       });
   }
 

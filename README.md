@@ -19,9 +19,16 @@
 
 ## GitHub Pages
 
-**線上網址：** https://royen0506.github.io/tjc-care-card/
+**線上網址：** https://royen0506.github.io/tjc-care-card/#/
+
+（使用 Hash 路由，無痕／重新整理也不會 404。）
 
 `main` 分支推送後，[Deploy to GitHub Pages](.github/workflows/deploy-github-pages.yml) 會自動建置並部署。
+
+### Google Apps Script
+
+- 範例程式：`scripts/gas-doGet.example.js`（需支援 JSONP `callback`）
+- 部署權限必須是 **「任何人」**，無痕模式／未登入 Google 的訪客才能讀到資料
 
 ### 首次啟用（只需做一次）
 

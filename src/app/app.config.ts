@@ -8,7 +8,7 @@ import { provideHttpClient, withJsonpSupport } from '@angular/common/http';
 /** @angular/platform-browser／動畫 */
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 /** @angular/router */
-import { provideRouter } from '@angular/router';
+import { provideRouter, withHashLocation } from '@angular/router';
 /** PrimeNG 全域設定與 Aura 主題 */
 import Aura from '@primeuix/themes/aura';
 import { providePrimeNG } from 'primeng/config';
@@ -35,6 +35,6 @@ export const appConfig: ApplicationConfig = {
         },
       },
     }),
-    provideRouter(routes),
+    provideRouter(routes, withHashLocation()),
   ],
 };

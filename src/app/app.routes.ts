@@ -4,11 +4,12 @@ export const routes: Routes = [
   {
     path: '',
     pathMatch: 'full',
-    redirectTo: 'responses',
+    loadComponent: () =>
+      import('./features/forms-responses/forms-responses.page').then((m) => m.FormsResponsesPage),
   },
   {
     path: 'responses',
-    loadComponent: () =>
-      import('./features/forms-responses/forms-responses.page').then((m) => m.FormsResponsesPage),
+    pathMatch: 'full',
+    redirectTo: '',
   },
 ];

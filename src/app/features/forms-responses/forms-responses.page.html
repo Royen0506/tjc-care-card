@@ -35,6 +35,10 @@
           >
         }
       </div>
+    } @else if (loadError()) {
+      <p class="text-center text-sm text-[#4B4B2A]/80 py-8">
+        無法載入資料，請稍後再試。
+      </p>
     } @else {
       <ng-container *ngFor="let item of dataList(); let i = index">
         <div
