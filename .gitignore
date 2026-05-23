@@ -1,0 +1,55 @@
+# See https://docs.github.com/get-started/git-basics/ignoring-files
+
+# Compiled output
+/dist
+/.preview
+/tmp
+/out-tsc
+/bazel-out
+
+# Node
+/node_modules
+npm-debug.log
+yarn-error.log
+pnpm-debug.log
+
+# Angular
+/.angular/cache
+
+# Testing
+/coverage
+/libpeerconnection.log
+testem.log
+/karma.conf.js.timestamp*
+
+# IDEs and editors
+.idea/
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+.history/
+
+# VS Code (keep shared workspace settings if present)
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Logs & caches
+*.log
+.sass-cache/
+/connect.lock
+/typings
+
+# System files
+.DS_Store
+Thumbs.db

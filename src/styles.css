@@ -1,0 +1,9 @@
+/**
+ * Tailwind v4 + PrimeUI 外掛（PrimeNG 官方文件）
+ * @see https://v20.primeng.org/tailwind
+ */
+@import 'tailwindcss';
+@import 'tailwindcss-primeui';
+
+/* @source './app/**.{html,ts}'; */
+/* @source './index.html'; */

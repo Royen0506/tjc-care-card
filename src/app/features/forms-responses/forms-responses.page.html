@@ -1,0 +1,68 @@
+<div class="w-full md:w-1/2 mx-auto p-3">
+  <header class="flex justify-between">
+    <div class="flex items-center">
+      <img src="logo.jpg" alt="" class="w-15 h-10 object-cover" />
+      <div>
+        <p class="text-sm font-bold text-[#4B4B2A]">True Jesus Church</p>
+        <p class="text-[#729C6D] font-medium">山佳社青SJC</p>
+      </div>
+    </div>
+    <small class="text-[#729C6D]/80 font-bold self-center">{{ now() }}</small>
+  </header>
+  <section
+    class="my-4 relative overflow-hidden rounded-2xl shadow-lg shadow-[#4B4B2A]/15 ring-1 ring-[#E0D8B4]/80"
+  >
+    <img
+      src="banner.jpg"
+      alt="家庭合照"
+      class="w-full h-50 md:h-100 object-cover object-[center_18%] md:object-[center_30%]"
+    />
+    <div class="banner-overlay absolute inset-x-0 bottom-0 px-4">
+      <p class="banner-caption text-center">給以謙＆以薰一家的關懷的關懷小卡</p>
+      <div class="mx-auto h-0.5 w-12 rounded-full bg-[#E0D8B4]/90"></div>
+    </div>
+  </section>
+  <p class="font-bold text-[#4B4B2A] text-xl">We want to tell you...</p>
+  <section class="responses-scroll mt-3 h-140 overflow-y-auto">
+    @if (isLoading()) {
+      <div class="tjc-loading" role="status" aria-label="載入中">
+        @for (char of loadingChars; track $index; let i = $index) {
+          <span
+            class="tjc-loading__char"
+            [class.tjc-loading__dot]="char === '.'"
+            [style.animation-delay]="i * 0.15 + 's'"
+            >{{ char }}</span
+          >
+        }
+      </div>
+    } @else {
+      <ng-container *ngFor="let item of dataList(); let i = index">
+        <div
+          [class.my-3]="i > 0"
+          class="flex bg-[#EEF4EB] rounded-2xl p-3 justify-center w-full mx-auto"
+          [ngClass]="{ 'flex-row-reverse': i % 2 === 1 }"
+        >
+          <div class="flex flex-col items-center">
+            <img
+              [src]="item.imgUrl"
+              alt=""
+              class="object-cover rounded-2xl w-24 h-25 ring-2 ring-[#729C6D]/30"
+            />
+            <div
+              class="bg-[#E0D8B4] text-[#4B4B2A] mt-3 text-center font-bold rounded-xl text-nowrap px-2 w-full"
+            >
+              {{ item.userName }}
+            </div>
+          </div>
+          <div
+            [class.mr-3]="i % 2 === 1"
+            [class.ml-3]="i % 2 === 0"
+            class="p-2 bg-[#FDFCF8] rounded-2xl flex-1 flex min-h-24 overscroll-auto border border-[#E0D8B4]/60"
+          >
+            <p class="w-full wrap-break-word text-sm text-[#4B4B2A]">{{ item.content }}</p>
+          </div>
+        </div>
+      </ng-container>
+    }
+  </section>
+</div>
