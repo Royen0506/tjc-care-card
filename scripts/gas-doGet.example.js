@@ -5,15 +5,16 @@
  * - 執行身分：我
  * - 具有存取權的使用者：任何人
  *
- * 圖片以 data URL（base64）嵌入 JSON。
- * 測試：在編輯器執行 testImageEncode() 看 Logger。
+ * 若 imgUrl 仍為空，請到 GCP 啟用 Drive API：
+ * GAS「專案設定」→「Google Cloud Platform 專案」→ API 和服務 → 啟用「Google Drive API」
  */
 const SPREADSHEET_ID = '1VVBJ2d9Ou9sd5N3nQz_uguUzSJdxIsKtb8q08rtpLTg';
 const SHEET_NAME = 'allUserResponse';
 
 function doGet(e) {
   const params = e && e.parameter ? e.parameter : {};
-  const payload = getResponses_();
+  const debug = params.debug === '1';
+  const payload = getResponses_(debug);
   const json = JSON.stringify(payload);
 
   if (params.callback) {
@@ -25,37 +26,15 @@ function doGet(e) {
   return ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);
 }
 
-/** 在 GAS 編輯器手動執行，確認能否讀到 Drive 圖片 */
 function testImageEncode() {
-  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_NAME);
-  const range = sheet.getDataRange();
-  const values = range.getValues();
-  const rich = range.getRichTextValues();
-  const headers = values[0];
-  const photoCol = headers.indexOf('imgUrl');
-
-  Logger.log('imgUrl column index: ' + photoCol);
-
-  if (photoCol < 0) {
-    Logger.log('找不到 imgUrl 欄位，headers=' + JSON.stringify(headers));
-    return;
-  }
-
-  const row = values[1];
-  const fileId = resolveDriveFileIdFromCell_(row[photoCol], rich[1][photoCol]);
-  Logger.log('fileId=' + fileId);
-
-  if (!fileId) {
-    Logger.log('cell value=' + row[photoCol]);
-    return;
-  }
-
-  const dataUrl = fileIdToDataUrl_(fileId);
-  Logger.log('dataUrl prefix=' + dataUrl.substring(0, 40));
-  Logger.log('dataUrl length=' + dataUrl.length);
+  const id = '1lVfWd0DGOBWKb4aKyGojIz0TwxmgrLRt';
+  Logger.log(getImageFetchStatus_(id));
+  const dataUrl = fileIdToDataUrl_(id);
+  Logger.log('length=' + dataUrl.length);
+  Logger.log('prefix=' + dataUrl.substring(0, 50));
 }
 
-function getResponses_() {
+function getResponses_(debug) {
   const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_NAME);
   const range = sheet.getDataRange();
   const values = range.getValues();
@@ -66,14 +45,19 @@ function getResponses_() {
   const photoCol = headers.indexOf('imgUrl');
 
   const data = rows
-    .map((row, ri) => {
+    .map(function (row, ri) {
       const obj = {};
-      headers.forEach((h, i) => (obj[h] = row[i]));
+      headers.forEach(function (h, i) {
+        obj[h] = row[i];
+      });
 
       if (photoCol >= 0) {
         const fileId = resolveDriveFileIdFromCell_(row[photoCol], richRows[ri][photoCol]);
         obj.imgFileId = fileId || '';
         obj.imgUrl = fileId ? fileIdToDataUrl_(fileId) : '';
+        if (debug && fileId && !obj.imgUrl) {
+          obj.imgDebug = getImageFetchStatus_(fileId);
+        }
       }
 
       return obj;
@@ -128,80 +112,129 @@ function isImageBlob_(blob) {
 }
 
 function fileIdToDataUrl_(fileId) {
-  try {
-    const file = DriveApp.getFileById(fileId);
-    const mime = file.getMimeType() || '';
-    const blob = file.getBlob();
-
-    if (mime.indexOf('image/') === 0) {
-      return 'data:' + mime + ';base64,' + Utilities.base64Encode(blob.getBytes());
-    }
-
-    if (isImageBlob_(blob)) {
-      const safeMime = blob.getContentType() || 'image/jpeg';
-      const normalized = safeMime.indexOf('image/') === 0 ? safeMime : 'image/jpeg';
-      return 'data:' + normalized + ';base64,' + Utilities.base64Encode(blob.getBytes());
-    }
-  } catch (err) {
-    // 改試 Drive API
-  }
-
-  return fetchDriveFileAsDataUrl_(fileId);
-}
-
-function fetchDriveFileAsDataUrl_(fileId) {
-  try {
-    const token = ScriptApp.getOAuthToken();
-    const mediaUrl =
-      'https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media&supportsAllDrives=true';
-    const resp = UrlFetchApp.fetch(mediaUrl, {
-      headers: { Authorization: 'Bearer ' + token },
-      muteHttpExceptions: true,
-    });
-
-    if (resp.getResponseCode() !== 200) {
-      return '';
-    }
-
-    let mime = (resp.getHeaders()['Content-Type'] || resp.getBlob().getContentType() || '')
-      .split(';')[0]
-      .trim();
-
-    if (!mime || mime.indexOf('image/') !== 0) {
-      mime = lookupDriveMimeType_(fileId, token) || '';
-    }
-
-    if (mime.indexOf('image/') === 0) {
-      return 'data:' + mime + ';base64,' + Utilities.base64Encode(resp.getBlob().getBytes());
-    }
-
-    if (isImageBlob_(resp.getBlob())) {
-      return 'data:image/jpeg;base64,' + Utilities.base64Encode(resp.getBlob().getBytes());
-    }
-  } catch (err) {
+  const blob = fetchDriveImageBlob_(fileId);
+  if (!blob) {
     return '';
   }
 
-  return '';
+  let mime = (blob.getContentType() || 'image/jpeg').split(';')[0].trim();
+  if (mime.indexOf('image/') !== 0) {
+    mime = isImageBlob_(blob) ? 'image/jpeg' : '';
+  }
+
+  if (!mime) {
+    return '';
+  }
+
+  // 多數瀏覽器不支援 HEIC，若 bytes 不是 JPEG/PNG 則略過
+  if (mime === 'image/heic' || mime === 'image/heif') {
+    if (!isImageBlob_(blob)) {
+      return '';
+    }
+    mime = 'image/jpeg';
+  }
+
+  return 'data:' + mime + ';base64,' + Utilities.base64Encode(blob.getBytes());
 }
 
-function lookupDriveMimeType_(fileId, token) {
-  try {
-    const metaUrl =
-      'https://www.googleapis.com/drive/v3/files/' + fileId + '?fields=mimeType&supportsAllDrives=true';
-    const resp = UrlFetchApp.fetch(metaUrl, {
-      headers: { Authorization: 'Bearer ' + token },
-      muteHttpExceptions: true,
-    });
+/** 以部署者 OAuth 讀取縮圖（重點：帶 Authorization，才拿得到 JPEG 而非 HTML） */
+function fetchDriveImageBlob_(fileId) {
+  const token = ScriptApp.getOAuthToken();
 
-    if (resp.getResponseCode() === 200) {
-      return JSON.parse(resp.getContentText()).mimeType || null;
+  const attempts = [
+    function () {
+      return UrlFetchApp.fetch(
+        'https://www.googleapis.com/drive/v3/files/' + fileId + '/thumbnail?sz=w400',
+        {
+          headers: { Authorization: 'Bearer ' + token },
+          muteHttpExceptions: true,
+          followRedirects: true,
+        },
+      );
+    },
+    function () {
+      return UrlFetchApp.fetch('https://drive.google.com/thumbnail?id=' + fileId + '&sz=w400', {
+        headers: { Authorization: 'Bearer ' + token },
+        muteHttpExceptions: true,
+        followRedirects: true,
+      });
+    },
+    function () {
+      return UrlFetchApp.fetch(
+        'https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media&supportsAllDrives=true',
+        {
+          headers: { Authorization: 'Bearer ' + token },
+          muteHttpExceptions: true,
+        },
+      );
+    },
+  ];
+
+  for (let i = 0; i < attempts.length; i++) {
+    try {
+      const resp = attempts[i]();
+      if (resp.getResponseCode() === 200 && isImageBlob_(resp.getBlob())) {
+        return resp.getBlob();
+      }
+    } catch (err) {
+      // try next
+    }
+  }
+
+  try {
+    const file = DriveApp.getFileById(fileId);
+    const blob = file.getBlob();
+    const mime = file.getMimeType() || '';
+    if (mime.indexOf('image/') === 0 || isImageBlob_(blob)) {
+      return blob;
     }
   } catch (err) {
     return null;
   }
 
   return null;
+}
+
+function getImageFetchStatus_(fileId) {
+  const token = ScriptApp.getOAuthToken();
+  const parts = [];
+
+  try {
+    DriveApp.getFileById(fileId);
+    parts.push('driveApp:ok');
+  } catch (err) {
+    parts.push('driveApp:' + err.message);
+  }
+
+  try {
+    const metaResp = UrlFetchApp.fetch(
+      'https://www.googleapis.com/drive/v3/files/' +
+        fileId +
+        '?fields=mimeType,name&supportsAllDrives=true',
+      {
+        headers: { Authorization: 'Bearer ' + token },
+        muteHttpExceptions: true,
+      },
+    );
+    parts.push('meta:' + metaResp.getResponseCode());
+  } catch (err) {
+    parts.push('metaErr:' + err.message);
+  }
+
+  try {
+    const mediaResp = UrlFetchApp.fetch(
+      'https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media&supportsAllDrives=true',
+      {
+        headers: { Authorization: 'Bearer ' + token },
+        muteHttpExceptions: true,
+      },
+    );
+    parts.push('media:' + mediaResp.getResponseCode());
+  } catch (err) {
+    parts.push('mediaErr:' + err.message);
+  }
+
+  return parts.join('|');
 }
 
 function parseDriveFileId_(input) {
