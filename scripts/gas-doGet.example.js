@@ -75,42 +75,87 @@ function isImageBlob_(blob) {
   return false;
 }
 
-function blobToDataUrl_(blob) {
-  if (!isImageBlob_(blob)) {
-    return '';
-  }
-
-  const mime = blob.getContentType() || 'image/jpeg';
-  const normalizedMime = mime.indexOf('image/') === 0 ? mime : 'image/jpeg';
-  return 'data:' + normalizedMime + ';base64,' + Utilities.base64Encode(blob.getBytes());
-}
-
-/** 以腳本擁有者身分讀取 Drive 檔案，轉成 data URL 供 <img src> 直接使用 */
+/** 以 Drive API（部署者 OAuth）讀取檔案，轉成 data URL */
 function fileIdToDataUrl_(fileId) {
-  try {
-    const fromDrive = blobToDataUrl_(DriveApp.getFileById(fileId).getBlob());
-    if (fromDrive) {
-      return fromDrive;
-    }
-  } catch (err) {
-    // 改試 thumbnail
+  const fromApi = fetchDriveFileAsDataUrl_(fileId);
+  if (fromApi) {
+    return fromApi;
   }
 
   try {
-    const thumbUrl = 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w400';
-    const resp = UrlFetchApp.fetch(thumbUrl, {
-      muteHttpExceptions: true,
-      followRedirects: true,
-    });
-
-    if (resp.getResponseCode() === 200) {
-      return blobToDataUrl_(resp.getBlob());
+    const file = DriveApp.getFileById(fileId);
+    const mime = file.getMimeType() || '';
+    if (mime.indexOf('image/') === 0) {
+      return encodeBlobAsDataUrl_(file.getBlob(), mime);
     }
   } catch (err) {
     return '';
   }
 
   return '';
+}
+
+function fetchDriveFileAsDataUrl_(fileId) {
+  try {
+    const token = ScriptApp.getOAuthToken();
+    const mediaUrl =
+      'https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media&supportsAllDrives=true';
+    const resp = UrlFetchApp.fetch(mediaUrl, {
+      headers: { Authorization: 'Bearer ' + token },
+      muteHttpExceptions: true,
+    });
+
+    if (resp.getResponseCode() !== 200) {
+      return '';
+    }
+
+    let mime = (resp.getHeaders()['Content-Type'] || resp.getBlob().getContentType() || '')
+      .split(';')[0]
+      .trim();
+
+    if (!mime || mime.indexOf('image/') !== 0) {
+      mime = lookupDriveMimeType_(fileId, token) || '';
+    }
+
+    return encodeBlobAsDataUrl_(resp.getBlob(), mime);
+  } catch (err) {
+    return '';
+  }
+}
+
+function lookupDriveMimeType_(fileId, token) {
+  try {
+    const metaUrl =
+      'https://www.googleapis.com/drive/v3/files/' + fileId + '?fields=mimeType&supportsAllDrives=true';
+    const resp = UrlFetchApp.fetch(metaUrl, {
+      headers: { Authorization: 'Bearer ' + token },
+      muteHttpExceptions: true,
+    });
+
+    if (resp.getResponseCode() === 200) {
+      return JSON.parse(resp.getContentText()).mimeType || null;
+    }
+  } catch (err) {
+    return null;
+  }
+
+  return null;
+}
+
+function encodeBlobAsDataUrl_(blob, mime) {
+  const normalizedMime = mime && mime.indexOf('image/') === 0 ? mime : '';
+
+  if (normalizedMime) {
+    return 'data:' + normalizedMime + ';base64,' + Utilities.base64Encode(blob.getBytes());
+  }
+
+  if (!isImageBlob_(blob)) {
+    return '';
+  }
+
+  const fallbackMime = blob.getContentType() || 'image/jpeg';
+  const safeMime = fallbackMime.indexOf('image/') === 0 ? fallbackMime : 'image/jpeg';
+  return 'data:' + safeMime + ';base64,' + Utilities.base64Encode(blob.getBytes());
 }
 
 function parseDriveFileId_(url) {
