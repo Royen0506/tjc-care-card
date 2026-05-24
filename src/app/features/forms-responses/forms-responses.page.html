@@ -18,7 +18,7 @@
       class="w-full h-50 md:h-100 object-cover object-[center_18%] md:object-[center_30%]"
     />
     <div class="banner-overlay absolute inset-x-0 bottom-0 px-4">
-      <p class="banner-caption text-center">給以謙＆以薰一家的關懷的關懷小卡</p>
+      <p class="banner-caption text-center">給以謙＆以薰一家的關懷小卡</p>
       <div class="mx-auto h-0.5 w-12 rounded-full bg-[#E0D8B4]/90"></div>
     </div>
   </section>
@@ -36,9 +36,7 @@
         }
       </div>
     } @else if (loadError()) {
-      <p class="text-center text-sm text-[#4B4B2A]/80 py-8">
-        無法載入資料，請稍後再試。
-      </p>
+      <p class="text-center text-sm text-[#4B4B2A]/80 py-8">無法載入資料，請稍後再試。</p>
     } @else {
       <ng-container *ngFor="let item of dataList(); let i = index">
         <div
